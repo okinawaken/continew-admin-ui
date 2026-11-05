@@ -69,9 +69,6 @@ pnpm dev
 # 生产构建（类型检查 + 构建到 dist/，drop console/debugger，静态资源按类型分目录）
 pnpm build
 
-# 以 test 模式构建（使用 .env.test，启用 Mock 打包）
-pnpm build:test
-
 # 仅类型检查（vue-tsc --noEmit），不产出文件
 pnpm typecheck
 
@@ -117,7 +114,7 @@ pnpm bootstrap
 | 表达式语句 | 禁止短路调用（`x && y()`）与三元语句，使用 `if` 表达控制流 |
 | 未使用变量 | 捕获错误变量（空处理 catch）与 `^_` 前缀变量/参数不检查 |
 | 无用 import | 禁止（`pnpm lint:fix` 自动清理） |
-| 忽略范围 | `**/*.md`、`.github`、`.image`、`src/types/shims-vue.d.ts` |
+| 忽略范围 | `**/*.md`、`.github`、`src/types/shims-vue.d.ts` |
 
 ## 新增业务模块的典型流程
 
@@ -129,7 +126,7 @@ pnpm bootstrap
 
 ## 环境与配置
 
-三个环境文件（`.env.development` / `.env.production` / `.env.test`），变量须以 `VITE_` 开头（`FILE` 前缀也会暴露到客户端）：
+两个环境文件（`.env.development` / `.env.production`），变量须以 `VITE_` 开头（`FILE` 前缀也会暴露到客户端）：
 
 | 变量 | 说明 |
 |------|------|
