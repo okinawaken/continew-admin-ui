@@ -1,5 +1,9 @@
 <template>
   <div class="gi_page">
+    <a-alert v-if="loaded && !hasToken" type="warning" style="margin-bottom: 14px">
+      尚未绑定小程序 token，绑定后才能查看和使用自习室功能。
+    </a-alert>
+
     <a-row :gutter="14">
       <a-col :xs="24" :lg="16">
         <a-card :bordered="false" class="gi_card_title" title="自动化配置">
@@ -49,13 +53,13 @@
                   </a-tag>
                 </div>
                 <template #extra>
-                  <span class="tip">token 仅用于代理小程序接口，属于凭据；留空保存表示保留原值。</span>
+                  <span class="tip">token 仅用于代理小程序接口，属于凭据；保存时会整体覆盖配置，留空表示保留当前绑定。</span>
                 </template>
               </a-form-item>
 
               <a-form-item label="执行说明">
                 <a-alert type="info">
-                  自动预约任务在放号时刻由定时任务触发；也可在任务列表手动执行一次。配置采用局部更新，未填写的项保留原值。
+                  自动预约任务在放号时刻由定时任务触发；也可在任务列表手动执行一次。保存时会以当前表单整体覆盖配置；小程序 token 留空表示保留当前绑定。
                 </a-alert>
               </a-form-item>
 
@@ -99,7 +103,7 @@
 
         <a-card :bordered="false" class="gi_card_title danger-card" title="危险操作" style="margin-top: 14px">
           <p class="danger-desc">
-            解绑后保存的 token 会被清空，自动预约与自动签到不再执行；历史任务与执行记录保留。
+            解绑后 token 会被清空，放号时刻与自动签到开关保留；自动预约与自动签到不再执行，历史任务与执行记录保留。
           </p>
           <a-button status="danger" :disabled="!hasToken" :loading="saving" @click="unbind">
             解除授权
@@ -116,17 +120,26 @@ import { Message, Modal } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
 import { getStudyRoomUserSetting, updateStudyRoomUserSetting } from '@/apis/study'
 import type { StudyRoomUserSettingReq } from '@/apis/study/type'
+import { useStudyRoomToken } from '@/features/study-room'
 import { useUserStore } from '@/stores'
 
 defineOptions({ name: 'StudyRoomSetting' })
 
 const { width } = useWindowSize()
 const userStore = useUserStore()
+const { markBound } = useStudyRoomToken()
 const formRef = ref<FormInstance>()
 
 const loading = ref(false)
+const loaded = ref(false)
 const saving = ref(false)
 const hasToken = ref(false)
+/** 已保存的配置，与后端 config 结构一致；全量更新时整体提交，token 留空则回填 */
+const config = ref<Required<StudyRoomUserSettingReq>>({
+  releaseTime: '20:00:00',
+  signInEnable: 0,
+  token: '',
+})
 
 const form = reactive({
   releaseTime: '20:00:00',
@@ -150,10 +163,18 @@ async function load() {
   loading.value = true
   try {
     const { data } = await getStudyRoomUserSetting(userId)
-    const config = data?.config ?? {}
-    form.releaseTime = config.releaseTime || '20:00:00'
-    form.signInEnable = config.signInEnable ?? 0
-    hasToken.value = Boolean(config.token)
+    const dataConfig = data?.config ?? {}
+    config.value = {
+      releaseTime: normalizeTime(dataConfig.releaseTime || '20:00:00'),
+      signInEnable: dataConfig.signInEnable ?? 0,
+      token: dataConfig.token || '',
+    }
+    form.releaseTime = config.value.releaseTime
+    form.signInEnable = config.value.signInEnable
+    hasToken.value = Boolean(config.value.token)
+    // 同步自习室模块的绑定缓存，绑定后无需再次检测即可进入其他自习室页面
+    markBound(hasToken.value)
+    loaded.value = true
     form.token = ''
   } finally {
     loading.value = false
@@ -171,9 +192,9 @@ async function save() {
   const payload: StudyRoomUserSettingReq = {
     releaseTime: normalizeTime(form.releaseTime),
     signInEnable: form.signInEnable,
+    // 后端为全量更新，token 留空时回填已保存的 token，避免误清绑定
+    token: form.token.trim() || config.value.token,
   }
-  const token = form.token.trim()
-  if (token) payload.token = token
   saving.value = true
   try {
     await updateStudyRoomUserSetting(payload, userId)
@@ -197,7 +218,8 @@ function unbind() {
     onBeforeOk: async () => {
       saving.value = true
       try {
-        await updateStudyRoomUserSetting({ token: '' }, userId)
+        // 后端为全量更新，解绑时带回已保存的配置，只清空 token
+        await updateStudyRoomUserSetting({ ...config.value, token: '' }, userId)
         Message.success('已解除授权')
         await load()
         return true
