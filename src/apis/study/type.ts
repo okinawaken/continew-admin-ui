@@ -347,6 +347,18 @@ export interface StudyRoomUserSignListResp {
   list: StudyRoomUserSignResp[]
 }
 
+/** 小程序用户概览（当前绑定 token 对应的账号） */
+export interface StudyRoomUserIndexResp {
+  headImg?: string
+  headImgAuth?: number
+  mobile?: string
+  nickName?: string
+  signTotalNum?: number
+  studyRankOpen?: string
+  studyTotalTimeStr?: string
+  userName?: string
+}
+
 /** 签到首页 */
 export interface StudyRoomIndexResp {
   hasVenue?: number

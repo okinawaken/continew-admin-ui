@@ -74,15 +74,32 @@
 
       <a-col :xs="24" :lg="8">
         <a-card :bordered="false" class="gi_card_title" title="当前账号">
-          <a-descriptions :column="1" size="medium">
-            <a-descriptions-item label="系统用户">
-              {{ userStore.userInfo.nickname || userStore.userInfo.username || '—' }}
+          <a-spin :loading="userLoading" style="display: block">
+            <div v-if="hasToken && canViewMiniUser" class="account-head">
+              <Avatar :src="miniUser?.headImg" :name="accountName" :size="48" />
+              <div class="account-main">
+                <div class="account-name">{{ accountName }}</div>
+                <div class="account-sub">{{ miniUser?.mobile || '—' }}</div>
+              </div>
+            </div>
+            <a-empty v-else :description="accountEmptyText" />
+          </a-spin>
+
+          <a-descriptions v-if="hasToken && canViewMiniUser" :column="1" size="medium" style="margin-top: 14px">
+            <a-descriptions-item label="微信昵称">
+              {{ miniUser?.nickName || '—' }}
             </a-descriptions-item>
-            <a-descriptions-item label="用户名">
-              {{ userStore.userInfo.username || '—' }}
+            <a-descriptions-item label="真实姓名">
+              {{ miniUser?.userName || '—' }}
             </a-descriptions-item>
             <a-descriptions-item label="手机号">
-              {{ userStore.userInfo.phone || '—' }}
+              {{ miniUser?.mobile || '—' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="累计签到">
+              {{ miniUser?.signTotalNum ?? 0 }} 次
+            </a-descriptions-item>
+            <a-descriptions-item label="累计学习">
+              {{ miniUser?.studyTotalTimeStr || '—' }}
             </a-descriptions-item>
             <a-descriptions-item label="绑定状态">
               <a-tag :color="hasToken ? 'green' : 'gray'" size="small">
@@ -118,12 +135,16 @@
 import type { FormInstance } from '@arco-design/web-vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
-import { getStudyRoomUserSetting, updateStudyRoomUserSetting } from '@/apis/study'
-import type { StudyRoomUserSettingReq } from '@/apis/study/type'
+import { getStudyRoomUserIndex, getStudyRoomUserSetting, updateStudyRoomUserSetting } from '@/apis/study'
+import type { StudyRoomUserIndexResp, StudyRoomUserSettingReq } from '@/apis/study/type'
 import { useStudyRoomToken } from '@/features/study-room'
 import { useUserStore } from '@/stores'
+import has from '@/utils/has'
 
 defineOptions({ name: 'StudyRoomSetting' })
+
+/** 查看小程序账号信息所需的权限标识（与后端 /business/study/user/index 一致） */
+const USER_INFO_READ_PERMISSION = 'business:study:user:list'
 
 const { width } = useWindowSize()
 const userStore = useUserStore()
@@ -134,6 +155,16 @@ const loading = ref(false)
 const loaded = ref(false)
 const saving = ref(false)
 const hasToken = ref(false)
+const userLoading = ref(false)
+/** 当前绑定 token 对应的小程序账号信息 */
+const miniUser = ref<StudyRoomUserIndexResp>()
+const canViewMiniUser = has.hasPerm(USER_INFO_READ_PERMISSION)
+const accountName = computed(() => miniUser.value?.nickName || miniUser.value?.userName || '未获取到昵称')
+const accountEmptyText = computed(() => {
+  if (!hasToken.value) return '尚未绑定小程序 token，绑定后展示小程序账号信息'
+  if (!canViewMiniUser) return '暂无查看小程序账号信息的权限'
+  return '暂未获取到小程序账号信息'
+})
 /** 已保存的配置，与后端 config 结构一致；全量更新时整体提交，token 留空则回填 */
 const config = ref<Required<StudyRoomUserSettingReq>>({
   releaseTime: '20:00:00',
@@ -157,6 +188,23 @@ function normalizeTime(value?: string) {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`
 }
 
+/** 加载当前绑定的小程序账号信息；未绑定、无权限或 token 失效时保持为空 */
+async function loadMiniUser() {
+  if (!hasToken.value || !canViewMiniUser) {
+    miniUser.value = undefined
+    return
+  }
+  userLoading.value = true
+  try {
+    const { data } = await getStudyRoomUserIndex()
+    miniUser.value = data ?? undefined
+  } catch {
+    miniUser.value = undefined
+  } finally {
+    userLoading.value = false
+  }
+}
+
 async function load() {
   const userId = userStore.userInfo.id
   if (!userId) return
@@ -176,6 +224,7 @@ async function load() {
     markBound(hasToken.value)
     loaded.value = true
     form.token = ''
+    await loadMiniUser()
   } finally {
     loading.value = false
   }
@@ -235,6 +284,25 @@ onMounted(load)
 
 <style scoped lang="scss">
 .tip {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-name {
+  color: var(--color-text-1);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.account-sub {
+  margin-top: 2px;
   color: var(--color-text-3);
   font-size: 12px;
 }

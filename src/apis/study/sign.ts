@@ -9,6 +9,11 @@ export function getStudyRoomIndex(query?: { currentLng?: number, currentLat?: nu
   return http.get<T.StudyRoomIndexResp>(`${BASE_URL}/index`, query)
 }
 
+/** @desc 小程序用户概览：头像、昵称、手机号、累计签到与学习时长 */
+export function getStudyRoomUserIndex() {
+  return http.get<T.StudyRoomUserIndexResp>(`${USER_BASE_URL}/index`)
+}
+
 /** @desc 历史签到记录（最近 N 条） */
 export function listStudyRoomUserSign(id = 0) {
   return http.get<T.StudyRoomUserSignListResp>(`${USER_BASE_URL}/sign/list`, { id })
