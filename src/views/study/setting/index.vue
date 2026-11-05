@@ -1,5 +1,9 @@
 <template>
   <div class="gi_page">
+    <a-alert v-if="loaded && !hasToken" type="warning" style="margin-bottom: 14px">
+      尚未绑定小程序 token，绑定后才能查看和使用自习室功能。
+    </a-alert>
+
     <a-row :gutter="14">
       <a-col :xs="24" :lg="16">
         <a-card :bordered="false" class="gi_card_title" title="自动化配置">
@@ -49,13 +53,13 @@
                   </a-tag>
                 </div>
                 <template #extra>
-                  <span class="tip">token 仅用于代理小程序接口，属于凭据；留空保存表示保留原值。</span>
+                  <span class="tip">token 仅用于代理小程序接口，属于凭据；保存时会整体覆盖配置，留空表示保留当前绑定。</span>
                 </template>
               </a-form-item>
 
               <a-form-item label="执行说明">
                 <a-alert type="info">
-                  自动预约任务在放号时刻由定时任务触发；也可在任务列表手动执行一次。配置采用局部更新，未填写的项保留原值。
+                  自动预约任务在放号时刻由定时任务触发；也可在任务列表手动执行一次。保存时会以当前表单整体覆盖配置；小程序 token 留空表示保留当前绑定。
                 </a-alert>
               </a-form-item>
 
@@ -70,15 +74,32 @@
 
       <a-col :xs="24" :lg="8">
         <a-card :bordered="false" class="gi_card_title" title="当前账号">
-          <a-descriptions :column="1" size="medium">
-            <a-descriptions-item label="系统用户">
-              {{ userStore.userInfo.nickname || userStore.userInfo.username || '—' }}
+          <a-spin :loading="userLoading" style="display: block">
+            <div v-if="hasToken && canViewMiniUser" class="account-head">
+              <Avatar :src="miniUser?.headImg" :name="accountName" :size="48" />
+              <div class="account-main">
+                <div class="account-name">{{ accountName }}</div>
+                <div class="account-sub">{{ miniUser?.mobile || '—' }}</div>
+              </div>
+            </div>
+            <a-empty v-else :description="accountEmptyText" />
+          </a-spin>
+
+          <a-descriptions v-if="hasToken && canViewMiniUser" :column="1" size="medium" style="margin-top: 14px">
+            <a-descriptions-item label="微信昵称">
+              {{ miniUser?.nickName || '—' }}
             </a-descriptions-item>
-            <a-descriptions-item label="用户名">
-              {{ userStore.userInfo.username || '—' }}
+            <a-descriptions-item label="真实姓名">
+              {{ miniUser?.userName || '—' }}
             </a-descriptions-item>
             <a-descriptions-item label="手机号">
-              {{ userStore.userInfo.phone || '—' }}
+              {{ miniUser?.mobile || '—' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="累计签到">
+              {{ miniUser?.signTotalNum ?? 0 }} 次
+            </a-descriptions-item>
+            <a-descriptions-item label="累计学习">
+              {{ miniUser?.studyTotalTimeStr || '—' }}
             </a-descriptions-item>
             <a-descriptions-item label="绑定状态">
               <a-tag :color="hasToken ? 'green' : 'gray'" size="small">
@@ -99,7 +120,7 @@
 
         <a-card :bordered="false" class="gi_card_title danger-card" title="危险操作" style="margin-top: 14px">
           <p class="danger-desc">
-            解绑后保存的 token 会被清空，自动预约与自动签到不再执行；历史任务与执行记录保留。
+            解绑后 token 会被清空，放号时刻与自动签到开关保留；自动预约与自动签到不再执行，历史任务与执行记录保留。
           </p>
           <a-button status="danger" :disabled="!hasToken" :loading="saving" @click="unbind">
             解除授权
@@ -114,19 +135,42 @@
 import type { FormInstance } from '@arco-design/web-vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
-import { getStudyRoomUserSetting, updateStudyRoomUserSetting } from '@/apis/study'
-import type { StudyRoomUserSettingReq } from '@/apis/study/type'
+import { getStudyRoomUserIndex, getStudyRoomUserSetting, updateStudyRoomUserSetting } from '@/apis/study'
+import type { StudyRoomUserIndexResp, StudyRoomUserSettingReq } from '@/apis/study/type'
+import { useStudyRoomToken } from '@/features/study-room'
 import { useUserStore } from '@/stores'
+import has from '@/utils/has'
 
 defineOptions({ name: 'StudyRoomSetting' })
 
+/** 查看小程序账号信息所需的权限标识（与后端 /business/study/user/index 一致） */
+const USER_INFO_READ_PERMISSION = 'business:study:user:list'
+
 const { width } = useWindowSize()
 const userStore = useUserStore()
+const { markBound } = useStudyRoomToken()
 const formRef = ref<FormInstance>()
 
 const loading = ref(false)
+const loaded = ref(false)
 const saving = ref(false)
 const hasToken = ref(false)
+const userLoading = ref(false)
+/** 当前绑定 token 对应的小程序账号信息 */
+const miniUser = ref<StudyRoomUserIndexResp>()
+const canViewMiniUser = has.hasPerm(USER_INFO_READ_PERMISSION)
+const accountName = computed(() => miniUser.value?.nickName || miniUser.value?.userName || '未获取到昵称')
+const accountEmptyText = computed(() => {
+  if (!hasToken.value) return '尚未绑定小程序 token，绑定后展示小程序账号信息'
+  if (!canViewMiniUser) return '暂无查看小程序账号信息的权限'
+  return '暂未获取到小程序账号信息'
+})
+/** 已保存的配置，与后端 config 结构一致；全量更新时整体提交，token 留空则回填 */
+const config = ref<Required<StudyRoomUserSettingReq>>({
+  releaseTime: '20:00:00',
+  signInEnable: 0,
+  token: '',
+})
 
 const form = reactive({
   releaseTime: '20:00:00',
@@ -144,17 +188,43 @@ function normalizeTime(value?: string) {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`
 }
 
+/** 加载当前绑定的小程序账号信息；未绑定、无权限或 token 失效时保持为空 */
+async function loadMiniUser() {
+  if (!hasToken.value || !canViewMiniUser) {
+    miniUser.value = undefined
+    return
+  }
+  userLoading.value = true
+  try {
+    const { data } = await getStudyRoomUserIndex()
+    miniUser.value = data ?? undefined
+  } catch {
+    miniUser.value = undefined
+  } finally {
+    userLoading.value = false
+  }
+}
+
 async function load() {
   const userId = userStore.userInfo.id
   if (!userId) return
   loading.value = true
   try {
     const { data } = await getStudyRoomUserSetting(userId)
-    const config = data?.config ?? {}
-    form.releaseTime = config.releaseTime || '20:00:00'
-    form.signInEnable = config.signInEnable ?? 0
-    hasToken.value = Boolean(config.token)
+    const dataConfig = data?.config ?? {}
+    config.value = {
+      releaseTime: normalizeTime(dataConfig.releaseTime || '20:00:00'),
+      signInEnable: dataConfig.signInEnable ?? 0,
+      token: dataConfig.token || '',
+    }
+    form.releaseTime = config.value.releaseTime
+    form.signInEnable = config.value.signInEnable
+    hasToken.value = Boolean(config.value.token)
+    // 同步自习室模块的绑定缓存，绑定后无需再次检测即可进入其他自习室页面
+    markBound(hasToken.value)
+    loaded.value = true
     form.token = ''
+    await loadMiniUser()
   } finally {
     loading.value = false
   }
@@ -171,9 +241,9 @@ async function save() {
   const payload: StudyRoomUserSettingReq = {
     releaseTime: normalizeTime(form.releaseTime),
     signInEnable: form.signInEnable,
+    // 后端为全量更新，token 留空时回填已保存的 token，避免误清绑定
+    token: form.token.trim() || config.value.token,
   }
-  const token = form.token.trim()
-  if (token) payload.token = token
   saving.value = true
   try {
     await updateStudyRoomUserSetting(payload, userId)
@@ -197,7 +267,8 @@ function unbind() {
     onBeforeOk: async () => {
       saving.value = true
       try {
-        await updateStudyRoomUserSetting({ token: '' }, userId)
+        // 后端为全量更新，解绑时带回已保存的配置，只清空 token
+        await updateStudyRoomUserSetting({ ...config.value, token: '' }, userId)
         Message.success('已解除授权')
         await load()
         return true
@@ -213,6 +284,25 @@ onMounted(load)
 
 <style scoped lang="scss">
 .tip {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-name {
+  color: var(--color-text-1);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.account-sub {
+  margin-top: 2px;
   color: var(--color-text-3);
   font-size: 12px;
 }

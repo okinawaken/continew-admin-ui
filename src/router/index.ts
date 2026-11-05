@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useRouteStore } from '@/stores'
 import { constantRoutes, systemRoutes } from '@/router/route'
 import { setupPageGuard, setupRouterGuard } from '@/router/guard'
+import { setupStudyRoomGuard } from '@/features/study-room'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,6 +11,7 @@ const router = createRouter({
 })
 
 setupRouterGuard(router)
+setupStudyRoomGuard(router)
 setupPageGuard(router)
 
 /**

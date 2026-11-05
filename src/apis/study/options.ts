@@ -8,7 +8,7 @@ export function listStudyRoomVenue() {
 
 /** @desc 区域筛选项 */
 export function listStudyRoomArea() {
-  return http.get<T.StudyRoomAreaSelectResp>('/business/study/reserve/area/select')
+  return http.get<T.StudyRoomAreaSelectResp>('/business/study/venue/reserve/area/select')
 }
 
 /** @desc 座位图（v2） */

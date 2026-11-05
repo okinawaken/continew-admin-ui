@@ -78,7 +78,7 @@ export interface StudyRoomUserSettingResp {
   config?: StudyRoomUserConfig
 }
 
-/** 用户配置写请求（局部更新） */
+/** 用户配置写请求（全量更新，未提交的配置项会被清空） */
 export interface StudyRoomUserSettingReq {
   releaseTime?: string
   signInEnable?: number
@@ -345,6 +345,18 @@ export interface StudyRoomUserSignResp {
 
 export interface StudyRoomUserSignListResp {
   list: StudyRoomUserSignResp[]
+}
+
+/** 小程序用户概览（当前绑定 token 对应的账号） */
+export interface StudyRoomUserIndexResp {
+  headImg?: string
+  headImgAuth?: number
+  mobile?: string
+  nickName?: string
+  signTotalNum?: number
+  studyRankOpen?: string
+  studyTotalTimeStr?: string
+  userName?: string
 }
 
 /** 签到首页 */
