@@ -141,7 +141,7 @@ pnpm bootstrap
 
 ## PR 约定
 
-所有 PR 必须提交到 `dev` 分支（新功能与功能优化）；维护分支 `x.x.x` 仅接受 bug 修复。请基于目标分支创建特性分支（如 `feat/new-feature`），不要直接修改源分支。遵循 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md)。
+所有 PR 必须提交到 `main` 分支（新功能与功能优化）；维护分支 `x.x.x` 仅接受 bug 修复。请基于目标分支创建特性分支（如 `feat/new-feature`），不要直接修改源分支。遵循 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md)。
 
 **提交格式**：[Conventional Commits（约定式提交）1.0.0](https://www.conventionalcommits.org/zh-hans/v1.0.0/)规范，`<类型>[可选作用域]: <描述>`，破坏性变更在类型或作用域后追加 `!`，如 `feat(user): 新增 xxx`、`feat!:`。作用域可取值：`apis` `views` `components` `hooks` `layout` `router` `stores` `directives` `styles` `utils` `mock` `types` `config` `constant`。
 
@@ -150,12 +150,3 @@ pnpm bootstrap
 ```bash
 pnpm lint && pnpm typecheck && pnpm build    # 三道门禁必须全部通过（被 lint 拦截时使用 pnpm lint:fix）
 ```
-
-## 安全漏洞
-
-不得通过 GitHub Issue 报告安全漏洞，请通过 GitHub 私有漏洞报告（Security Advisories）负责任地披露。
-
-## Agent Skills
-
-各 agent 工具（DeepSeek Harness / Claude Code / Codex）共用的技能统一存放在 `.agents/skills/` 作为唯一事实源——每个技能一个目录、含 `SKILL.md`。
-
