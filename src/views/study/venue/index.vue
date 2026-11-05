@@ -150,6 +150,7 @@ import type { TableInstance } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
 import { getStudyRoomVenueIndex } from '@/apis/study'
 import type { StudyRoomVenueDetailResp } from '@/apis/study/type'
+import { getStudyRoomLocation } from '@/features/study-room'
 
 defineOptions({ name: 'StudyRoomVenue' })
 
@@ -190,7 +191,9 @@ const columns: TableInstance['columns'] = [
 async function load() {
   loading.value = true
   try {
-    const { data } = await getStudyRoomVenueIndex()
+    // 上游按经纬度计算附近门店与距离
+    const location = await getStudyRoomLocation()
+    const { data } = await getStudyRoomVenueIndex(location)
     venueList.value = data?.venueList ?? []
   } finally {
     loading.value = false

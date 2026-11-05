@@ -152,6 +152,7 @@ import type {
   StudyRoomBuyV2PackageOptResp,
   StudyRoomPackageItemResp,
 } from '@/apis/study/type'
+import { getStudyRoomLocation } from '@/features/study-room'
 
 defineOptions({ name: 'StudyRoomPackage' })
 
@@ -202,9 +203,11 @@ const filteredPackages = computed(() => {
 })
 
 async function loadOptions() {
+  // 上游按经纬度筛选可用门店与套餐
+  const location = await getStudyRoomLocation()
   const [venueRes, optRes] = await Promise.all([
     listStudyRoomVenue(),
-    getStudyRoomPackageOpt(),
+    getStudyRoomPackageOpt(location),
   ])
   venueList.value = venueRes.data?.venueList ?? []
   opt.value = optRes.data

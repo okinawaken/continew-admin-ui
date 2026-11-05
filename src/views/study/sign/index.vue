@@ -180,6 +180,7 @@ import type {
   StudyRoomSettlementResp,
   StudyRoomUserSignResp,
 } from '@/apis/study/type'
+import { getStudyRoomLocation } from '@/features/study-room'
 
 defineOptions({ name: 'StudyRoomSign' })
 
@@ -211,10 +212,12 @@ const historyColumns: TableInstance['columns'] = [
 async function load() {
   loading.value = true
   try {
-    const [indexRes, signRes] = await Promise.all([
-      getStudyRoomIndex(),
+    // 上游按经纬度计算附近门店，缺少定位会导致 /sign/index 失败
+    const [location, signRes] = await Promise.all([
+      getStudyRoomLocation(),
       listStudyRoomUserSign(0),
     ])
+    const indexRes = await getStudyRoomIndex(location)
     indexData.value = indexRes.data
     history.value = signRes.data?.list ?? []
   } finally {

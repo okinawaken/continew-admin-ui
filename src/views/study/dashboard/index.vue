@@ -212,6 +212,7 @@ import type {
   StudyRoomUserSettingResp,
   StudyRoomUserSignResp,
 } from '@/apis/study/type'
+import { getStudyRoomLocation } from '@/features/study-room'
 import { useUserStore } from '@/stores'
 
 defineOptions({ name: 'StudyRoomDashboard' })
@@ -372,9 +373,11 @@ async function load() {
   const settingPromise = userId
     ? getStudyRoomUserSetting(userId).then((res) => res.data).catch(() => undefined)
     : Promise.resolve(undefined)
+  // 上游按经纬度计算附近门店，缺少定位会导致 /sign/index 失败
+  const indexPromise = getStudyRoomLocation().then((location) => getStudyRoomIndex(location))
   try {
     const [indexRes, signRes, reserveRes, orderRes, taskRes, recordRes, settingRes] = await Promise.allSettled([
-      getStudyRoomIndex(),
+      indexPromise,
       listStudyRoomUserSign(0),
       listStudyRoomUserReserve(),
       listStudyRoomOrder(),
